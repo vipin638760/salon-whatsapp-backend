@@ -1,0 +1,86 @@
+{
+  "fixture_id": "handwritten-ledger-001",
+  "source": "Captain daily collection photo (papergrid notebook) supplied by owner 2026-11-23. Original image not stored on disk; this is the human-verified transcription used as ground truth for extraction + reconciliation tests.",
+  "purpose": "Test that the captain-accounting extractor (a) transcribes per-staff collection columns, (b) INDEPENDENTLY re-sums each column and flags any mismatch vs the handwritten total, (c) marks low-confidence cells for human review, and (d) refuses to auto-post because the cash line does not reconcile.",
+  "difficulty_notes": [
+    "Mixed content: per-staff collection columns + an expense summary block + a cash reconciliation block, all on one page.",
+    "Several cells written as 'N+10' (e.g. '50+10').",
+    "Some struck-through / smudged entries in the Google/GPay column.",
+    "Totals written by hand may round away the '+10' remainders (e.g. ASHKAR total written '2750+10' = 2760)."
+  ],
+  "columns": [
+    {
+      "name": "KAMIL",
+      "entries": [50,50,50,100,100,50,50,50,50,50,100,150,100,650,150,150,100,150,150,350],
+      "handwritten_total": 2650,
+      "computed_total": 2650,
+      "matches": true
+    },
+    {
+      "name": "ASHKAR",
+      "entries": [50,50,50,60,50,150,100,100,150,50,100,150,100,100,150,50,400,100,450,150,200],
+      "entries_note": "The 4th entry '50+10' captured as 60. Handwritten total '2750+10' = 2760.",
+      "handwritten_total": 2760,
+      "computed_total": 2760,
+      "matches": true
+    },
+    {
+      "name": "GOOGLE_GPAY",
+      "entries": [150,150,350],
+      "entries_note": "Partial / low confidence. Several cells struck through or smudged ('50+10', 'u400+10', a crossed value). Column not cleanly totalled on the page.",
+      "handwritten_total": null,
+      "computed_total": null,
+      "matches": null,
+      "needs_human_review": true
+    },
+    {
+      "name": "LEFT_UNLABELED",
+      "entries": [50,50,50,50,50,50,60,100,150,100,100,50,50,50,150,50,50,100,50,100,200,650,150,400,150,100,450,150,50],
+      "entries_note": "Leftmost column, header illegible (possibly a date/'Google' split). '50+10' captured as 60. No handwritten total on page.",
+      "handwritten_total": null,
+      "computed_total": 3760,
+      "matches": null,
+      "needs_human_review": true
+    }
+  ],
+  "expenses_block": {
+    "items": [
+      {"label": "KAMIL", "amount": 270},
+      {"label": "ASHKAR", "amount": 280},
+      {"label": "TEA", "amount": 70},
+      {"label": "TP", "amount": 10}
+    ],
+    "handwritten_total": 630,
+    "computed_total": 630,
+    "matches": true
+  },
+  "reconciliation_block_as_written": {
+    "lines": [2750, 2650, "+5400", "-1000", "-630"],
+    "cash_circled": 370,
+    "note": "Uses the rounded column totals 2750 + 2650 = 5400. Then -1000 (unlabeled, likely online/GPay or a deposit) and -630 (the expenses block). 5400 - 1000 - 630 = 3770, which does NOT equal the circled CASH 370. Discrepancy is unexplained on the page."
+  },
+  "expected_system_behavior": {
+    "auto_post": false,
+    "status": "DRAFT",
+    "must_recompute_column_sums": true,
+    "column_sum_mismatches": [],
+    "low_confidence_cells_flagged": ["GOOGLE_GPAY.*", "LEFT_UNLABELED.*", "any 'N+10' cell"],
+    "reconciliation": {
+      "reconciles": false,
+      "requires_explanation": true,
+      "unexplained_difference": 3400,
+      "unexplained_difference_note": "3770 expected cash vs 370 written = 3400 gap. The -1000 line is unlabeled and the online/GPay portion is not separated. System must ask the captain to classify collection vs online vs expense vs cash before the closing can be submitted."
+    },
+    "privacy": "If this were rendered back to a captain, salary figures (none here) would be masked; owner-only."
+  },
+  "assertions_for_tests": [
+    "extract.columns.KAMIL.computed_total === 2650",
+    "extract.columns.KAMIL.matches === true",
+    "extract.columns.ASHKAR.computed_total === 2760",
+    "extract.expenses.computed_total === 630",
+    "extract.reconciliation.reconciles === false",
+    "extract.reconciliation.requires_explanation === true",
+    "result.status === 'DRAFT'",
+    "result.auto_posted === false"
+  ]
+}
